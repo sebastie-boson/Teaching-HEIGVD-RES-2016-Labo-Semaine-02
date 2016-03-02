@@ -1,13 +1,8 @@
 package ch.heigvd.res.io;
 
 import ch.heigvd.res.io.util.Timer;
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+
+import java.io.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -23,7 +18,6 @@ import java.util.logging.Logger;
  * @author Olivier Liechti
  */
 public class BufferedIOBenchmark {
-
 	static final Logger LOG = Logger.getLogger(BufferedIOBenchmark.class.getName());
 
 	/**
@@ -43,12 +37,16 @@ public class BufferedIOBenchmark {
 	 * This method drives the generation of test data file, based on the parameters passed. The method opens a
 	 * FileOutputStream. Depending on the strategy, it wraps a BufferedOutputStream around it, or not. The method
 	 * then delegates the actual production of bytes to another method, passing it the stream.
+	 * ...
 	 */
-	private void produceTestData(IOStrategy ioStrategy, long numberOfBytesToWrite, int blockSize) {
+	private void produceTestData(IOStrategy ioStrategy, long numberOfBytesToWrite, int blockSize, OutputStream csvFile) {
 		LOG.log(Level.INFO, "Generating test data ({0}, {1} bytes, block size: {2}...", new Object[]{ioStrategy, numberOfBytesToWrite, blockSize});
 		Timer.start();
 
 		OutputStream os = null;
+		// ... => for errors
+		long time = -1;
+
 		try {
 			// Let's connect our stream to a file data sink
 			os = new FileOutputStream(FILENAME_PREFIX + "-" + ioStrategy + "-" + blockSize + ".bin");
@@ -63,6 +61,10 @@ public class BufferedIOBenchmark {
 
 			// We are done, so we only have to close the output stream
 			os.close();
+
+			// ...
+			time = Timer.takeTime();
+			csvFile.write(("WRITE," + ioStrategy + "," + blockSize + "," + NUMBER_OF_BYTES_TO_WRITE + "," + time + "\n").getBytes());
 		} catch (IOException ex) {
 			LOG.log(Level.SEVERE, ex.getMessage(), ex);
 		} finally {
@@ -74,7 +76,7 @@ public class BufferedIOBenchmark {
 				LOG.log(Level.SEVERE, ex.getMessage(), ex);
 			}
 		}
-		LOG.log(Level.INFO, "  > Done in {0} ms.", Timer.takeTime());
+		LOG.log(Level.INFO, "  > Done in {0} ms.", time);
 	}
 	
 	/**
@@ -118,12 +120,15 @@ public class BufferedIOBenchmark {
 	 * This method drives the consumption of test data file, based on the parameters passed. The method opens a
 	 * FileInputStream. Depending on the strategy, it wraps a BufferedInputStream around it, or not. The method
 	 * then delegates the actual consumption of bytes to another method, passing it the stream.
+	 * ...
 	 */
-	private void consumeTestData(IOStrategy ioStrategy, int blockSize) {
+	private void consumeTestData(IOStrategy ioStrategy, int blockSize, OutputStream csvFile) {
 		LOG.log(Level.INFO, "Consuming test data ({0}, block size: {1}...", new Object[]{ioStrategy, blockSize});
 		Timer.start();
 
 		InputStream is = null;
+		long time = -1;
+
 		try {
 			// Let's connect our stream to a file data sink
 			is = new FileInputStream(FILENAME_PREFIX + "-" + ioStrategy + "-" + blockSize + ".bin");
@@ -138,6 +143,10 @@ public class BufferedIOBenchmark {
 
 			// We are done, so we only have to close the input stream
 			is.close();
+
+			// ...
+			time = Timer.takeTime();
+			csvFile.write(("READ," + ioStrategy + "," + blockSize + "," + NUMBER_OF_BYTES_TO_WRITE + "," + time + "\n").getBytes());
 		} catch (IOException ex) {
 			LOG.log(Level.SEVERE, ex.getMessage(), ex);
 		} finally {
@@ -149,8 +158,7 @@ public class BufferedIOBenchmark {
 				LOG.log(Level.SEVERE, ex.getMessage(), ex);
 			}
 		}
-		LOG.log(Level.INFO, "  > Done in {0} ms.", Timer.takeTime());
-
+		LOG.log(Level.INFO, "  > Done in {0} ms.", time);
 	}
 
 	/**
@@ -190,33 +198,62 @@ public class BufferedIOBenchmark {
 
 		BufferedIOBenchmark bm = new BufferedIOBenchmark();
 
-		LOG.log(Level.INFO, "");
-		LOG.log(Level.INFO, "*** BENCHMARKING WRITE OPERATIONS (with BufferedStream)", Timer.takeTime());
-		bm.produceTestData(IOStrategy.BlockByBlockWithBufferedStream, NUMBER_OF_BYTES_TO_WRITE, 500);
-		bm.produceTestData(IOStrategy.BlockByBlockWithBufferedStream, NUMBER_OF_BYTES_TO_WRITE, 50);
-		bm.produceTestData(IOStrategy.BlockByBlockWithBufferedStream, NUMBER_OF_BYTES_TO_WRITE, 5);
-		bm.produceTestData(IOStrategy.ByteByByteWithBufferedStream, NUMBER_OF_BYTES_TO_WRITE, 0);
+		// csv file
+		OutputStream osCsvFile = null;
 
-		LOG.log(Level.INFO, "");
-		LOG.log(Level.INFO, "*** BENCHMARKING WRITE OPERATIONS (without BufferedStream)", Timer.takeTime());
-		bm.produceTestData(IOStrategy.BlockByBlockWithoutBufferedStream, NUMBER_OF_BYTES_TO_WRITE, 500);
-		bm.produceTestData(IOStrategy.BlockByBlockWithoutBufferedStream, NUMBER_OF_BYTES_TO_WRITE, 50);
-		bm.produceTestData(IOStrategy.BlockByBlockWithoutBufferedStream, NUMBER_OF_BYTES_TO_WRITE, 5);
-		bm.produceTestData(IOStrategy.ByteByByteWithoutBufferedStream, NUMBER_OF_BYTES_TO_WRITE, 0);
+		// ...
+		try {
+			// ...
+			osCsvFile = new FileOutputStream("metrics.csv");
+			// ...
+			osCsvFile = new BufferedOutputStream(osCsvFile);
 
-		LOG.log(Level.INFO, "");
-		LOG.log(Level.INFO, "*** BENCHMARKING READ OPERATIONS (with BufferedStream)", Timer.takeTime());
-		bm.consumeTestData(IOStrategy.BlockByBlockWithBufferedStream, 500);
-		bm.consumeTestData(IOStrategy.BlockByBlockWithBufferedStream, 50);
-		bm.consumeTestData(IOStrategy.BlockByBlockWithBufferedStream, 5);
-		bm.consumeTestData(IOStrategy.ByteByByteWithBufferedStream, 0);
-		
-		LOG.log(Level.INFO, "");
-		LOG.log(Level.INFO, "*** BENCHMARKING READ OPERATIONS (without BufferedStream)", Timer.takeTime());
-		bm.consumeTestData(IOStrategy.BlockByBlockWithoutBufferedStream, 500);
-		bm.consumeTestData(IOStrategy.BlockByBlockWithoutBufferedStream, 50);
-		bm.consumeTestData(IOStrategy.BlockByBlockWithoutBufferedStream, 5);
-		bm.consumeTestData(IOStrategy.ByteByByteWithoutBufferedStream, 0);
+			// ...
+			osCsvFile.write("operation,strategy,blockSize,fileSizeInBytes,durationInMs\n".getBytes());
+
+			LOG.log(Level.INFO, "");
+			// ...
+			LOG.log(Level.INFO, "*** BENCHMARKING WRITE OPERATIONS (with BufferedStream)", Timer.takeTime());
+			bm.produceTestData(IOStrategy.BlockByBlockWithBufferedStream, NUMBER_OF_BYTES_TO_WRITE, 500, osCsvFile);
+			bm.produceTestData(IOStrategy.BlockByBlockWithBufferedStream, NUMBER_OF_BYTES_TO_WRITE, 50, osCsvFile);
+			bm.produceTestData(IOStrategy.BlockByBlockWithBufferedStream, NUMBER_OF_BYTES_TO_WRITE, 5, osCsvFile);
+			bm.produceTestData(IOStrategy.ByteByByteWithBufferedStream, NUMBER_OF_BYTES_TO_WRITE, 0, osCsvFile);
+
+			LOG.log(Level.INFO, "");
+			LOG.log(Level.INFO, "*** BENCHMARKING WRITE OPERATIONS (without BufferedStream)", Timer.takeTime());
+			bm.produceTestData(IOStrategy.BlockByBlockWithoutBufferedStream, NUMBER_OF_BYTES_TO_WRITE, 500, osCsvFile);
+			bm.produceTestData(IOStrategy.BlockByBlockWithoutBufferedStream, NUMBER_OF_BYTES_TO_WRITE, 50, osCsvFile);
+			bm.produceTestData(IOStrategy.BlockByBlockWithoutBufferedStream, NUMBER_OF_BYTES_TO_WRITE, 5, osCsvFile);
+			bm.produceTestData(IOStrategy.ByteByByteWithoutBufferedStream, NUMBER_OF_BYTES_TO_WRITE, 0, osCsvFile);
+
+			LOG.log(Level.INFO, "");
+			// ...
+			LOG.log(Level.INFO, "*** BENCHMARKING READ OPERATIONS (with BufferedStream)", Timer.takeTime());
+			bm.consumeTestData(IOStrategy.BlockByBlockWithBufferedStream, 500, osCsvFile);
+			bm.consumeTestData(IOStrategy.BlockByBlockWithBufferedStream, 50, osCsvFile);
+			bm.consumeTestData(IOStrategy.BlockByBlockWithBufferedStream, 5, osCsvFile);
+			bm.consumeTestData(IOStrategy.ByteByByteWithBufferedStream, 0, osCsvFile);
+
+			LOG.log(Level.INFO, "");
+			LOG.log(Level.INFO, "*** BENCHMARKING READ OPERATIONS (without BufferedStream)", Timer.takeTime());
+			bm.consumeTestData(IOStrategy.BlockByBlockWithoutBufferedStream, 500, osCsvFile);
+			bm.consumeTestData(IOStrategy.BlockByBlockWithoutBufferedStream, 50, osCsvFile);
+			bm.consumeTestData(IOStrategy.BlockByBlockWithoutBufferedStream, 5, osCsvFile);
+			bm.consumeTestData(IOStrategy.ByteByByteWithoutBufferedStream, 0, osCsvFile);
+
+			// ...
+			osCsvFile.close();
+		} catch (IOException ex) {
+			LOG.log(Level.SEVERE, ex.getMessage(), ex);
+		} finally {
+			try {
+				if (osCsvFile != null) {
+					osCsvFile.close();
+				}
+			} catch (IOException ex) {
+				LOG.log(Level.SEVERE, ex.getMessage(), ex);
+			}
+		}
 	}
 
 }
